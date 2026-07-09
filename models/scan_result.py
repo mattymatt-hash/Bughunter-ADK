@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from models.host_result import HostResult
+
 
 @dataclass
 class ScanResult:
@@ -22,4 +24,4 @@ class ScanResult:
 
     technologies: list = field(default_factory=list)
 
-    subdomains: list = field(default_factory=list)
+    hosts: list[HostResult] = field(default_factory=list)

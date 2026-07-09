@@ -1,6 +1,7 @@
 import json
-from pathlib import Path
+from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 
 
 class ReportWriter:
@@ -9,12 +10,11 @@ class ReportWriter:
 
         Path("reports").mkdir(exist_ok=True)
 
-        filename = datetime.now().strftime(
-            "reports/report_%Y%m%d_%H%M%S.json"
+        filename = (
+            f"reports/report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         )
 
         with open(filename, "w", encoding="utf-8") as f:
-
-            json.dump(result.__dict__, f, indent=4)
+            json.dump(asdict(result), f, indent=4)
 
         return filename

@@ -62,16 +62,25 @@ def display(result):
 
     console.print()
 
-    console.print("[bold cyan]Subdomains[/bold cyan]")
+    console.print("[bold cyan]Discovered Hosts[/bold cyan]")
 
-    count = len(result.subdomains)
+    count = len(result.hosts)
 
-    console.print(f"Found {count} subdomains")
+    console.print(f"Found {count} hosts")
 
     if count:
 
-        for host in result.subdomains[:25]:
-            console.print(f"✓ {host}")
+        for host in result.hosts[:25]:
+
+            console.print(
+                f"[green]{host.status:3}[/green]  {host.host}"
+            )
+
+            if host.technologies:
+
+                console.print(
+                    "      " + ", ".join(host.technologies[:4])
+                )
 
         if count > 25:
             console.print(f"... and {count - 25} more")
@@ -79,6 +88,7 @@ def display(result):
     else:
 
         console.print("None found")
+
 
 def main():
 
