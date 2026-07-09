@@ -54,13 +54,31 @@ def display(result):
     if result.technologies:
 
         for tech in result.technologies:
-
             console.print(f"✓ {tech}")
 
     else:
 
         console.print("None detected")
 
+    console.print()
+
+    console.print("[bold cyan]Subdomains[/bold cyan]")
+
+    count = len(result.subdomains)
+
+    console.print(f"Found {count} subdomains")
+
+    if count:
+
+        for host in result.subdomains[:25]:
+            console.print(f"✓ {host}")
+
+        if count > 25:
+            console.print(f"... and {count - 25} more")
+
+    else:
+
+        console.print("None found")
 
 def main():
 

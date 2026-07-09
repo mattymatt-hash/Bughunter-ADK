@@ -21,3 +21,5 @@ class ScanResult:
     title: str = ""
 
     technologies: list = field(default_factory=list)
+
+    subdomains: list = field(default_factory=list)
