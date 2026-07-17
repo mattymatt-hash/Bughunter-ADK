@@ -64,30 +64,54 @@ def display(result):
 
     console.print("[bold cyan]Discovered Hosts[/bold cyan]")
 
-    count = len(result.hosts)
+    total_hosts = len(result.hosts)
 
-    console.print(f"Found {count} hosts")
+    live_hosts = [h for h in result.hosts if h.status > 0]
 
-    if count:
+    success = sum(1 for h in live_hosts if 200 <= h.status < 300)
+    redirects = sum(1 for h in live_hosts if 300 <= h.status < 400)
+    forbidden = sum(1 for h in live_hosts if h.status in (401, 403))
+    client_errors = sum(1 for h in live_hosts if 400 <= h.status < 500)
 
-        for host in result.hosts[:25]:
+    console.print(f"Found      : {total_hosts}")
+    console.print(f"Live       : {len(live_hosts)}")
+    console.print(f"200 OK     : {success}")
+    console.print(f"Redirects  : {redirects}")
+    console.print(f"Forbidden  : {forbidden}")
+    console.print(f"4xx Errors : {client_errors}")
+
+    console.print()
+
+    sorted_hosts = sorted(
+        live_hosts,
+        key=lambda h: (
+            0 if 200 <= h.status < 300 else
+            1 if 300 <= h.status < 400 else
+            2 if h.status in (401, 403) else
+            3 if 400 <= h.status < 500 else
+            4 if h.status >= 500 else
+            5,
+            h.host.lower()
+        )
+    )
+
+    for host in sorted_hosts[:30]:
+
+        console.print(
+            f"[green]{host.status:3}[/green]  {host.host}"
+        )
+
+        if host.technologies:
 
             console.print(
-                f"[green]{host.status:3}[/green]  {host.host}"
+                "      " + ", ".join(host.technologies[:5])
             )
 
-            if host.technologies:
+    if len(sorted_hosts) > 30:
 
-                console.print(
-                    "      " + ", ".join(host.technologies[:4])
-                )
-
-        if count > 25:
-            console.print(f"... and {count - 25} more")
-
-    else:
-
-        console.print("None found")
+        console.print(
+            f"... and {len(sorted_hosts) - 30} more live hosts"
+        )
 
 
 def main():
