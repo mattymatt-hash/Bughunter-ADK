@@ -1,27 +1,65 @@
 from dataclasses import dataclass, field
 
 from models.host_result import HostResult
+from models.url_result import UrlResult
 
 
 @dataclass
 class ScanResult:
 
+    # --------------------------------------------------
+    # Target Information
+    # --------------------------------------------------
+
     target: str
-
     ip: str = ""
-
     status: int = 0
-
+    title: str = ""
     server: str = ""
-
     powered_by: str = ""
 
-    robots: bool = False
+    # --------------------------------------------------
+    # Recon Checks
+    # --------------------------------------------------
 
+    robots: bool = False
     sitemap: bool = False
 
-    title: str = ""
+    # --------------------------------------------------
+    # Scan Metadata
+    # --------------------------------------------------
 
-    technologies: list = field(default_factory=list)
+    scan_profile: str = "quick"
+    started: str = ""
+    finished: str = ""
+    duration: float = 0.0
+
+    # --------------------------------------------------
+    # Statistics
+    # --------------------------------------------------
+
+    discovered_hosts: int = 0
+    scanned_hosts: int = 0
+    live_hosts: int = 0
+
+    discovered_urls: int = 0
+
+    success_2xx: int = 0
+    redirects_3xx: int = 0
+    forbidden_403: int = 0
+    not_found_404: int = 0
+    server_errors_5xx: int = 0
+
+    # --------------------------------------------------
+    # Technologies
+    # --------------------------------------------------
+
+    technologies: list[str] = field(default_factory=list)
+
+    # --------------------------------------------------
+    # Recon Data
+    # --------------------------------------------------
 
     hosts: list[HostResult] = field(default_factory=list)
+
+    urls: list[UrlResult] = field(default_factory=list)

@@ -14,41 +14,72 @@ class ReportWriter:
             f"reports/report_{datetime.now():%Y%m%d_%H%M%S}.json"
         )
 
-        live_hosts = [h for h in result.hosts if h.status > 0]
-
         report = {
-            "scan_time": datetime.now().isoformat(),
-            "target": result.target,
-            "ip": result.ip,
-            "status": result.status,
-            "title": result.title,
-            "server": result.server,
-            "robots": result.robots,
-            "sitemap": result.sitemap,
-            "technologies": result.technologies,
 
-            "statistics": {
-                "total_hosts": len(result.hosts),
-                "live_hosts": len(live_hosts),
-                "success": sum(
-                    1 for h in live_hosts
-                    if 200 <= h.status < 300
-                ),
-                "redirects": sum(
-                    1 for h in live_hosts
-                    if 300 <= h.status < 400
-                ),
-                "forbidden": sum(
-                    1 for h in live_hosts
-                    if h.status == 403
-                ),
+            "scan": {
+
+                "profile": result.scan_profile,
+                "started": result.started,
+                "finished": result.finished,
+                "duration_seconds": result.duration,
+
             },
 
-            "hosts": [asdict(h) for h in result.hosts]
+            "target": {
+
+                "domain": result.target,
+                "ip": result.ip,
+                "status": result.status,
+                "title": result.title,
+                "server": result.server,
+                "powered_by": result.powered_by,
+                "robots": result.robots,
+                "sitemap": result.sitemap,
+
+            },
+
+            "statistics": {
+
+                "discovered_hosts": result.discovered_hosts,
+                "scanned_hosts": result.scanned_hosts,
+                "live_hosts": result.live_hosts,
+
+                "discovered_urls": result.discovered_urls,
+
+                "2xx": result.success_2xx,
+                "3xx": result.redirects_3xx,
+                "403": result.forbidden_403,
+                "404": result.not_found_404,
+                "5xx": result.server_errors_5xx,
+
+            },
+
+            "technologies": result.technologies,
+
+            "hosts": [
+
+                asdict(host)
+
+                for host in result.hosts
+
+            ],
+
+            "urls": [
+
+                asdict(url)
+
+                for url in result.urls
+
+            ]
+
         }
 
         with open(filename, "w", encoding="utf-8") as f:
 
-            json.dump(report, f, indent=4)
+            json.dump(
+                report,
+                f,
+                indent=4
+            )
 
         return filename

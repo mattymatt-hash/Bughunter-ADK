@@ -70,15 +70,17 @@ def display(result):
 
     success = sum(1 for h in live_hosts if 200 <= h.status < 300)
     redirects = sum(1 for h in live_hosts if 300 <= h.status < 400)
-    forbidden = sum(1 for h in live_hosts if h.status in (401, 403))
-    client_errors = sum(1 for h in live_hosts if 400 <= h.status < 500)
+    forbidden = sum(1 for h in live_hosts if h.status == 403)
+    not_found = sum(1 for h in live_hosts if h.status == 404)
+    server_errors = sum(1 for h in live_hosts if 500 <= h.status < 600)
 
     console.print(f"Found      : {total_hosts}")
     console.print(f"Live       : {len(live_hosts)}")
-    console.print(f"200 OK     : {success}")
-    console.print(f"Redirects  : {redirects}")
-    console.print(f"Forbidden  : {forbidden}")
-    console.print(f"4xx Errors : {client_errors}")
+    console.print(f"2xx        : {success}")
+    console.print(f"3xx        : {redirects}")
+    console.print(f"403        : {forbidden}")
+    console.print(f"404        : {not_found}")
+    console.print(f"5xx        : {server_errors}")
 
     console.print()
 
@@ -87,8 +89,8 @@ def display(result):
         key=lambda h: (
             0 if 200 <= h.status < 300 else
             1 if 300 <= h.status < 400 else
-            2 if h.status in (401, 403) else
-            3 if 400 <= h.status < 500 else
+            2 if h.status == 403 else
+            3 if h.status == 404 else
             4 if h.status >= 500 else
             5,
             h.host.lower()
@@ -120,31 +122,69 @@ def main():
 
     startup()
 
-    if len(sys.argv) >= 3 and sys.argv[1] == "scan":
+    if len(sys.argv) < 3 or sys.argv[1] != "scan":
 
-        target = sys.argv[2]
+        console.print(
+            "[red]Usage:[/red] python main.py scan <target> "
+            "[--quick|--normal|--full]"
+        )
 
-        recon = ReconAgent()
+        return
 
-        result = recon.scan(target)
+    target = sys.argv[2]
 
-        display(result)
+    profile = "--quick"
 
-        writer = ReportWriter()
+    if len(sys.argv) >= 4:
+        profile = sys.argv[3].lower()
 
-        filename = writer.save(result)
+    if profile == "--quick":
 
-        console.print()
+        host_limit = 25
 
-        console.rule("[bold green]AI Security Assessment")
+    elif profile == "--normal":
 
-        analysis = AIAnalyzer().analyze(result)
+        host_limit = 250
 
-        console.print(analysis)
+    elif profile == "--full":
 
-        console.print()
+        host_limit = None
 
-        console.print(f"[green]✓ Report saved:[/green] {filename}")
+    else:
+
+        console.print(
+            "[red]Unknown scan profile.[/red]"
+        )
+
+        return
+
+    console.print()
+    console.print(f"[cyan]Scan Profile:[/cyan] {profile}")
+
+    recon = ReconAgent()
+
+    result = recon.scan(
+        target,
+        host_limit=host_limit
+    )
+
+    display(result)
+
+    writer = ReportWriter()
+
+    filename = writer.save(result)
+
+    console.print()
+
+    console.rule("[bold green]AI Security Assessment")
+
+    analysis = AIAnalyzer().analyze(result)
+
+    console.print(analysis)
+
+    console.print()
+
+    console.print(f"[green]✓ Report saved:[/green] {filename}")
 
 
 if __name__ == "__main__":
