@@ -42,11 +42,7 @@ class ReconAgent:
         if not url.startswith("http"):
             url = "https://" + url
 
-        domain = (
-            url.replace("https://", "")
-            .replace("http://", "")
-            .split("/")[0]
-        )
+        domain = url.replace("https://", "").replace("http://", "").split("/")[0]
 
         result = ScanResult(target=domain)
 
@@ -60,6 +56,28 @@ class ReconAgent:
             result.scan_profile = "full"
 
         # -----------------------------------
+        # Katana Scan Settings
+        # -----------------------------------
+
+        if result.scan_profile == "quick":
+
+            katana_depth = 1
+            katana_concurrency = 5
+            katana_timeout = 15
+
+        elif result.scan_profile == "normal":
+
+            katana_depth = 2
+            katana_concurrency = 10
+            katana_timeout = 30
+
+        else:
+
+            katana_depth = 3
+            katana_concurrency = 20
+            katana_timeout = 90
+
+        # -----------------------------------
         # Subfinder
         # -----------------------------------
 
@@ -67,9 +85,7 @@ class ReconAgent:
             hosts = SubfinderTool().scan(domain)
 
             for host in hosts:
-                result.hosts.append(
-                    HostResult(host=host)
-                )
+                result.hosts.append(HostResult(host=host))
 
             result.discovered_hosts = len(result.hosts)
 
@@ -129,10 +145,7 @@ class ReconAgent:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
 
             for host in result.hosts[:total]:
-                future = executor.submit(
-                    self._scan_host,
-                    host
-                )
+                future = executor.submit(self._scan_host, host)
 
                 futures[future] = host.host
 
@@ -143,11 +156,29 @@ class ReconAgent:
 
                 host = future.result()
 
-                print(
-                    f"[{completed}/{total}] "
-                    f"{host.status:3}  {host.host}"
-                )
+                print(f"[{completed}/{total}] " f"{host.status:3}  {host.host}")
+            # -----------------------------------
+            # Select Live Hosts
+            # -----------------------------------
 
+            crawl_hosts = []
+
+            for host in result.hosts:
+
+                if host.status in (
+                    200,
+                    201,
+                    202,
+                    203,
+                    204,
+                    205,
+                    206,
+                    207,
+                    208,
+                    226,
+                ):
+
+                    crawl_hosts.append(host)
         # -----------------------------------
         # Katana Crawl
         # -----------------------------------
@@ -155,20 +186,43 @@ class ReconAgent:
         try:
             print()
             print("Running Katana...")
+            print(
+                f"Profile: {result.scan_profile} | "
+                f"Depth: {katana_depth} | "
+                f"Workers: {katana_concurrency} | "
+                f"Timeout: {katana_timeout}s"
+            )
             print()
 
-            result.urls = self.katana.scan(
-                url,
-                depth=1,
-                concurrency=10,
-                timeout=60,
-           )
+            result.urls = []
+
+            for index, host in enumerate(crawl_hosts, start=1):
+
+                print(f"Crawling {index}/{len(crawl_hosts)}: " f"https://{host.host}")
+
+                urls = self.katana.scan(
+                    f"https://{host.host}",
+                    depth=katana_depth,
+                    concurrency=katana_concurrency,
+                    timeout=katana_timeout,
+                )
+
+                result.urls.extend(urls)
 
             result.discovered_urls = len(result.urls)
 
-            print(
-                f"Discovered {result.discovered_urls} URLs"
-            )
+            print()
+            print(f"Discovered {result.discovered_urls} URLs")
+            print()
+
+      # Show the first 10 discovered URLs
+            for url in result.urls[:10]:
+                print(f"  {url.url}")
+
+      # If there are more than 10, show a summary
+            if len(result.urls) > 10:
+                print(f"\n... and {len(result.urls) - 10} more URLs")
+            
 
         except Exception as e:
             print("\n========== KATANA ERROR ==========")
@@ -185,10 +239,7 @@ class ReconAgent:
 
         try:
             result.robots = (
-                requests.get(
-                    url + "/robots.txt",
-                    timeout=10
-                ).status_code == 200
+                requests.get(url + "/robots.txt", timeout=10).status_code == 200
             )
 
         except Exception:
@@ -200,10 +251,7 @@ class ReconAgent:
 
         try:
             result.sitemap = (
-                requests.get(
-                    url + "/sitemap.xml",
-                    timeout=10
-                ).status_code == 200
+                requests.get(url + "/sitemap.xml", timeout=10).status_code == 200
             )
 
         except Exception:
@@ -213,50 +261,25 @@ class ReconAgent:
         # Statistics
         # -----------------------------------
 
-        live_hosts = [
-            h for h in result.hosts
-            if h.status > 0
-        ]
+        live_hosts = [h for h in result.hosts if h.status > 0]
 
         result.live_hosts = len(live_hosts)
 
-        result.success_2xx = sum(
-            1 for h in live_hosts
-            if 200 <= h.status < 300
-        )
+        result.success_2xx = sum(1 for h in live_hosts if 200 <= h.status < 300)
 
-        result.redirects_3xx = sum(
-            1 for h in live_hosts
-            if 300 <= h.status < 400
-        )
+        result.redirects_3xx = sum(1 for h in live_hosts if 300 <= h.status < 400)
 
-        result.forbidden_403 = sum(
-            1 for h in live_hosts
-            if h.status == 403
-        )
+        result.forbidden_403 = sum(1 for h in live_hosts if h.status == 403)
 
-        result.not_found_404 = sum(
-            1 for h in live_hosts
-            if h.status == 404
-        )
+        result.not_found_404 = sum(1 for h in live_hosts if h.status == 404)
 
-        result.server_errors_5xx = sum(
-            1 for h in live_hosts
-            if 500 <= h.status < 600
-        )
+        result.server_errors_5xx = sum(1 for h in live_hosts if 500 <= h.status < 600)
 
         if result.urls:
-           result.urls.sort(
-           key=lambda x: x.url
-      )
+            result.urls.sort(key=lambda x: x.url)
 
-        result.finished = datetime.now().isoformat(
-            timespec="seconds"
-        )
+        result.finished = datetime.now().isoformat(timespec="seconds")
 
-        result.duration = round(
-            time.time() - start_time,
-            2
-        )
+        result.duration = round(time.time() - start_time, 2)
 
         return result
