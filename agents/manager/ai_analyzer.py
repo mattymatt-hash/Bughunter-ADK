@@ -44,9 +44,73 @@ Give:
 Keep it under 300 words.
 """
 
-        response = self.manager.client.models.generate_content(
-            model=self.manager.model,
-            contents=prompt,
-        )
+        try:
 
-        return response.text
+            response = self.manager.client.models.generate_content(
+                model=self.manager.model,
+                contents=prompt,
+            )
+
+            return response.text
+
+        except Exception as e:
+
+            error = str(e)
+
+            print()
+            print("========== AI ANALYZER ==========")
+
+            if "429" in error or "RESOURCE_EXHAUSTED" in error:
+
+                print("Gemini quota exceeded.")
+                print("Skipping AI analysis.")
+
+                message = (
+                    "AI analysis skipped.\n\n"
+                    "Reason: Gemini quota exceeded."
+                )
+
+            elif "401" in error:
+
+                print("Invalid Gemini API key.")
+                print("Skipping AI analysis.")
+
+                message = (
+                    "AI analysis skipped.\n\n"
+                    "Reason: Invalid Gemini API key."
+                )
+
+            elif "403" in error:
+
+                print("Gemini request forbidden.")
+                print("Skipping AI analysis.")
+
+                message = (
+                    "AI analysis skipped.\n\n"
+                    "Reason: Access forbidden."
+                )
+
+            elif "503" in error:
+
+                print("Gemini service unavailable.")
+                print("Skipping AI analysis.")
+
+                message = (
+                    "AI analysis skipped.\n\n"
+                    "Reason: Gemini service unavailable."
+                )
+
+            else:
+
+                print(type(e).__name__)
+                print(error)
+
+                message = (
+                    "AI analysis skipped.\n\n"
+                    f"Reason: {type(e).__name__}"
+                )
+
+            print("================================")
+            print()
+
+            return message

@@ -2,6 +2,8 @@ import socket
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from tools.javascript_tool import JavaScriptTool
+from tools.javascript_analyzer import JavaScriptAnalyzer
 
 import requests
 
@@ -17,6 +19,8 @@ class ReconAgent:
     def __init__(self, max_workers=20):
         self.httpx = HttpxTool()
         self.katana = KatanaTool()
+        self.javascript = JavaScriptTool()
+        self.javascript_analyzer = JavaScriptAnalyzer()
         self.max_workers = max_workers
 
     def _scan_host(self, host):
@@ -211,9 +215,25 @@ class ReconAgent:
 
             result.discovered_urls = len(result.urls)
 
+            # -----------------------------------
+              # JavaScript Discovery
+            # -----------------------------------
+
             print()
-            print(f"Discovered {result.discovered_urls} URLs")
+            print("Running JavaScript Discovery...")
+            print(f"Scanning {len(result.urls)} discovered URLs...")
             print()
+
+            result.javascript_files = self.javascript.scan(result.urls)
+
+            print()
+
+            if result.javascript_files:
+                print(
+                    f"Discovered {len(result.javascript_files)} JavaScript files"
+             )
+            else:
+                print("No JavaScript files discovered.")
 
       # Show the first 10 discovered URLs
             for url in result.urls[:10]:
@@ -222,16 +242,34 @@ class ReconAgent:
       # If there are more than 10, show a summary
             if len(result.urls) > 10:
                 print(f"\n... and {len(result.urls) - 10} more URLs")
-            
+
+
+            # -----------------------------------
+            # JavaScript Analysis
+            # -----------------------------------
+
+            print()
+            print("Running JavaScript Analysis...")
+            print()
+
+            result.javascript_findings = (
+                self.javascript_analyzer.analyze(
+                    result.javascript_files
+                )
+            )
+
+            print(
+                f"Found {len(result.javascript_findings)} JavaScript findings"
+            )
 
         except Exception as e:
-            print("\n========== KATANA ERROR ==========")
-            print(type(e).__name__)
-            print(e)
-            print("==================================\n")
-
-            result.urls = []
-            result.discovered_urls = 0
+                        print("\n========== KATANA ERROR ==========")
+                        print(type(e).__name__)
+                        print(e)
+                        print("==================================\n")
+            
+                        result.urls = []
+                        result.discovered_urls = 0
 
         # -----------------------------------
         # robots.txt

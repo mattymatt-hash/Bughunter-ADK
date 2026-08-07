@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-
+from models.javascript_finding import JavaScriptFinding
 from models.host_result import HostResult
 from models.url_result import UrlResult
-
+from models.javascript_file import JavaScriptFile
 
 @dataclass
 class ScanResult:
@@ -63,3 +63,13 @@ class ScanResult:
     hosts: list[HostResult] = field(default_factory=list)
 
     urls: list[UrlResult] = field(default_factory=list)
+
+
+# -----------------------------------
+# JavaScript
+# -----------------------------------
+
+    javascript_files: list[JavaScriptFile] = field(default_factory=list)
+    javascript_findings: list[JavaScriptFinding] = field(
+    default_factory=list
+)

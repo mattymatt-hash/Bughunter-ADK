@@ -23,13 +23,29 @@ def startup():
 
     init_database()
 
+    console.print("[green]✓[/green] SQLite database initialized")
+    console.print()
+
     console.print("Connecting to Gemini...")
 
     manager = ManagerAgent()
 
     reply = manager.test_connection()
 
-    console.print(f"[green]✓[/green] {reply}")
+    if reply == "BugHunter ADK Online":
+
+        console.print("[green]✓[/green] Gemini connected")
+
+    elif reply == "Gemini unavailable":
+
+        console.print("[yellow]⚠[/yellow] Gemini unavailable")
+        console.print("Continuing in offline mode...")
+
+    else:
+
+        console.print(f"[yellow]⚠[/yellow] {reply}")
+
+    console.print()
 
 
 def display(result):

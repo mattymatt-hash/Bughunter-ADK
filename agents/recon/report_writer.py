@@ -64,14 +64,28 @@ class ReportWriter:
 
             ],
 
+            "javascript_files": [
+
+                asdict(js)
+
+                for js in result.javascript_files
+
+            ],
+
             "urls": [
 
                 asdict(url)
 
                 for url in result.urls
 
-            ]
+            ],
+            "javascript_findings": [
 
+              asdict(finding)
+
+              for finding in result.javascript_findings
+
+],
         }
 
         with open(filename, "w", encoding="utf-8") as f:

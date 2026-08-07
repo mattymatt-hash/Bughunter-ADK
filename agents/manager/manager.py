@@ -15,9 +15,29 @@ class ManagerAgent:
 
     def test_connection(self):
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents="Reply only with: BugHunter ADK Online"
-        )
+        try:
 
-        return response.text
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents="Reply only with: BugHunter ADK Online"
+            )
+
+            return response.text
+
+        except Exception as e:
+
+            error = str(e)
+
+            if "429" in error or "RESOURCE_EXHAUSTED" in error:
+                return "Gemini unavailable"
+
+            elif "401" in error:
+                return "Invalid Gemini API key"
+
+            elif "403" in error:
+                return "Gemini access forbidden"
+
+            elif "503" in error:
+                return "Gemini service unavailable"
+
+            return f"Gemini error: {type(e).__name__}"
