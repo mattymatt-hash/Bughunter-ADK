@@ -2,6 +2,7 @@ import socket
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from unittest import result
 from tools.javascript_tool import JavaScriptTool
 from tools.javascript_analyzer import JavaScriptAnalyzer
 
@@ -258,18 +259,47 @@ class ReconAgent:
                 )
             )
 
-            print(
-                f"Found {len(result.javascript_findings)} JavaScript findings"
-            )
+            print()
+
+            if result.javascript_findings:
+
+                print("JavaScript Findings")
+                print("-" * 30)
+
+                summary = {}
+
+                for finding in result.javascript_findings:
+
+                    summary[finding.type] = (
+                        summary.get(finding.type, 0) + 1
+                    )
+
+                for finding_type, count in sorted(
+                    summary.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                ):
+
+                    print(f"{finding_type:<22} {count}")
+
+                print("-" * 30)
+                print(f"Total Findings        {len(result.javascript_findings)}")
+
+            else:
+
+                print("No JavaScript findings discovered.")
 
         except Exception as e:
-                        print("\n========== KATANA ERROR ==========")
-                        print(type(e).__name__)
-                        print(e)
-                        print("==================================\n")
-            
-                        result.urls = []
-                        result.discovered_urls = 0
+
+            print("\n========== KATANA ERROR ==========")
+            print(type(e).__name__)
+            print(e)
+            print("==================================\n")
+
+            result.urls = []
+            result.discovered_urls = 0
+            result.javascript_files = []
+            result.javascript_findings = []
 
         # -----------------------------------
         # robots.txt

@@ -16,6 +16,11 @@ class JavaScriptAnalyzer:
         re.IGNORECASE,
     )
 
+    GRAPHQL_REGEX = re.compile(
+        r'["\']([^"\']*graphql[^"\']*)["\']',
+        re.IGNORECASE,
+    )
+
     def analyze(self, javascript_files):
 
         findings = []
@@ -82,6 +87,33 @@ class JavaScriptAnalyzer:
                     JavaScriptFinding(
 
                         type="REST Endpoint",
+
+                        value=endpoint,
+
+                        source=js.url,
+
+                    )
+
+                )
+
+                # -----------------------------------
+                # GraphQL Endpoint Extraction
+                # -----------------------------------
+
+            for endpoint in self.GRAPHQL_REGEX.findall(text):
+
+                key = ("GraphQL", endpoint)
+
+                if key in seen:
+                    continue
+
+                seen.add(key)
+
+                findings.append(
+
+                    JavaScriptFinding(
+
+                        type="GraphQL Endpoint",
 
                         value=endpoint,
 
