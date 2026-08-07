@@ -26,6 +26,11 @@ class JavaScriptAnalyzer:
         re.IGNORECASE,
     )
 
+    EMAIL_REGEX = re.compile(
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+        re.IGNORECASE,
+    )
+
     def _add_finding(
         self,
         findings,
@@ -124,12 +129,26 @@ class JavaScriptAnalyzer:
                 # -----------------------------------
             for websocket in self.WEBSOCKET_REGEX.findall(text):
 
-                 self._add_finding(
+                self._add_finding(
                      findings,
                      seen,
                      "WebSocket",
                      websocket,
                      js.url,
                  )
+
+                 # -----------------------------------
+                # Email Extraction
+                # -----------------------------------
+
+            for email in self.EMAIL_REGEX.findall(text):
+
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Email",
+                    email,
+                    js.url,
+                )
 
         return findings
