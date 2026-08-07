@@ -21,6 +21,42 @@ class JavaScriptAnalyzer:
         re.IGNORECASE,
     )
 
+    WEBSOCKET_REGEX = re.compile(
+        r'["\']((?:ws|wss)://[^"\']+)["\']',
+        re.IGNORECASE,
+    )
+
+    def _add_finding(
+        self,
+        findings,
+        seen,
+        finding_type,
+        value,
+        source,
+    ):
+
+        key = (finding_type, value)
+
+        if key in seen:
+            return
+
+        seen.add(key)
+
+        findings.append(
+
+            JavaScriptFinding(
+
+                type=finding_type,
+
+                value=value,
+
+                source=source,
+
+            )
+
+        )
+
+
     def analyze(self, javascript_files):
 
         findings = []
@@ -48,25 +84,12 @@ class JavaScriptAnalyzer:
 
             for match in self.URL_REGEX.findall(text):
 
-                key = ("URL", match)
-
-                if key in seen:
-                    continue
-
-                seen.add(key)
-
-                findings.append(
-
-                    JavaScriptFinding(
-
-                        type="URL",
-
-                        value=match,
-
-                        source=js.url,
-
-                    )
-
+                self._add_finding(
+                    findings,
+                    seen,
+                    "URL",
+                    match,
+                    js.url,
                 )
 
             # -----------------------------------
@@ -75,52 +98,38 @@ class JavaScriptAnalyzer:
 
             for endpoint in self.REST_REGEX.findall(text):
 
-                key = ("REST", endpoint)
-
-                if key in seen:
-                    continue
-
-                seen.add(key)
-
-                findings.append(
-
-                    JavaScriptFinding(
-
-                        type="REST Endpoint",
-
-                        value=endpoint,
-
-                        source=js.url,
-
-                    )
-
+                self._add_finding(
+                    findings,
+                    seen,
+                    "REST Endpoint",
+                    endpoint,
+                    js.url,
                 )
-
                 # -----------------------------------
                 # GraphQL Endpoint Extraction
                 # -----------------------------------
 
             for endpoint in self.GRAPHQL_REGEX.findall(text):
 
-                key = ("GraphQL", endpoint)
-
-                if key in seen:
-                    continue
-
-                seen.add(key)
-
-                findings.append(
-
-                    JavaScriptFinding(
-
-                        type="GraphQL Endpoint",
-
-                        value=endpoint,
-
-                        source=js.url,
-
-                    )
-
+                self._add_finding(
+                    findings,
+                    seen,
+                    "GraphQL Endpoint",
+                    endpoint,
+                    js.url,
                 )
+
+                # -----------------------------------
+                # WebSocket Extraction
+                # -----------------------------------
+            for websocket in self.WEBSOCKET_REGEX.findall(text):
+
+                 self._add_finding(
+                     findings,
+                     seen,
+                     "WebSocket",
+                     websocket,
+                     js.url,
+                 )
 
         return findings
