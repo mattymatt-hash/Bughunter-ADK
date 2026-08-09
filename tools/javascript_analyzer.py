@@ -1,3 +1,4 @@
+from email.mime import text
 import re
 
 import requests
@@ -29,6 +30,14 @@ class JavaScriptAnalyzer:
     EMAIL_REGEX = re.compile(
         r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
         re.IGNORECASE,
+    )
+
+    TODO_REGEX = re.compile(
+        r"(?im)\b(?:TODO|FIXME)\b[:\s-]*(.*)"
+    )
+
+    JWT_REGEX = re.compile(
+        r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"
     )
 
     def _add_finding(
@@ -136,7 +145,7 @@ class JavaScriptAnalyzer:
                      websocket,
                      js.url,
                  )
-
+ 
                  # -----------------------------------
                 # Email Extraction
                 # -----------------------------------
@@ -150,5 +159,38 @@ class JavaScriptAnalyzer:
                     email,
                     js.url,
                 )
+
+                # -----------------------------------
+                # TODO / FIXME Extraction
+                # -----------------------------------
+
+                for todo in self.TODO_REGEX.findall(text):
+
+                    todo = todo.strip()
+
+                    if not todo:
+                        continue
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "TODO/FIXME",
+                        todo,
+                        js.url,
+                    )
+
+                    # -----------------------------------
+                    # JWT Token Extraction
+                    # -----------------------------------
+
+                for token in self.JWT_REGEX.findall(text):
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "JWT Token",
+                        token,
+                        js.url,
+                    )
 
         return findings
