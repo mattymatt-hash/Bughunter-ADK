@@ -272,6 +272,11 @@ class ReconAgent:
                 "Email",
                 "TODO/FIXME",
                 "JWT Token",
+                "Google API Key",
+                "Firebase URLs",
+                "AWS Keys",
+                "Internal IPs",
+                "Authorization Headers"
             ]
 
             summary = {}

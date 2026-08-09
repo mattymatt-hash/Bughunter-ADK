@@ -44,6 +44,28 @@ class JavaScriptAnalyzer:
         r"AIza[0-9A-Za-z\-_]{35}"
     )
 
+    FIREBASE_REGEX = re.compile(
+        r"https://[A-Za-z0-9-]+(?:\.firebaseio\.com|\.firebasedatabase\.app)[^\s\"']*",
+        re.IGNORECASE,
+    )
+
+    AWS_KEY_REGEX = re.compile(
+        r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"
+    )
+
+    INTERNAL_IP_REGEX = re.compile(
+        r"\b(?:"
+        r"10(?:\.\d{1,3}){3}|"
+        r"192\.168(?:\.\d{1,3}){2}|"
+        r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}"
+        r")\b"
+    )
+
+    AUTH_HEADER_REGEX = re.compile(
+        r"(?:Authorization|authorization)\s*[:=]\s*[\"']?(Bearer|Basic)\s+([A-Za-z0-9._~+/=-]+)",
+        re.IGNORECASE,
+    )
+
     def _add_finding(
         self,
         findings,
@@ -210,6 +232,62 @@ class JavaScriptAnalyzer:
                         key,
                         js.url,
                     )
+
+                    # -----------------------------------
+                    # Firebase URL Extraction
+                    # -----------------------------------
+
+                for url in self.FIREBASE_REGEX.findall(text):
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "Firebase URL",
+                        url,
+                        js.url,
+                    )
+
+                    # -----------------------------------
+                    # AWS Key Extraction
+                    # -----------------------------------
+
+                for key in self.AWS_KEY_REGEX.findall(text):
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "AWS Key",
+                        key,
+                        js.url,
+                    )
+
+                    # -----------------------------------
+                    # Internal IP Extraction
+                    # -----------------------------------
+
+                for ip in self.INTERNAL_IP_REGEX.findall(text):
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "Internal IP",
+                        ip,
+                        js.url,
+                    )
+
+                     # -----------------------------------
+                     # Authorization Header Extraction
+                     # -----------------------------------
+
+                for auth_type, token in self.AUTH_HEADER_REGEX.findall(text):
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "Authorization Header",
+                        f"{auth_type} {token}",
+                        js.url,
+                    )              
 
         return findings
        
