@@ -261,33 +261,35 @@ class ReconAgent:
 
             print()
 
-            if result.javascript_findings:
+            print("JavaScript Findings")
+            print("-" * 35)
 
-                print("JavaScript Findings")
-                print("-" * 30)
+            expected = [
+                "URL",
+                "REST Endpoint",
+                "GraphQL Endpoint",
+                "WebSocket",
+                "Email",
+                "TODO/FIXME",
+                "JWT Token",
+            ]
 
-                summary = {}
+            summary = {}
 
-                for finding in result.javascript_findings:
+            for finding in result.javascript_findings:
+                summary[finding.type] = (
+                summary.get(finding.type, 0) + 1
+                )
 
-                    summary[finding.type] = (
-                        summary.get(finding.type, 0) + 1
-                    )
+            for finding_type in expected:
+                print(
+                    f"{finding_type:<20} {summary.get(finding_type, 0):>5}"
+                )
 
-                for finding_type, count in sorted(
-                    summary.items(),
-                    key=lambda item: item[1],
-                    reverse=True,
-                ):
-
-                    print(f"{finding_type:<22} {count}")
-
-                print("-" * 30)
-                print(f"Total Findings        {len(result.javascript_findings)}")
-
-            else:
-
-                print("No JavaScript findings discovered.")
+            print("-" * 35)
+            print(
+                f"{'Total Findings':<20} {len(result.javascript_findings):>5}"
+            )
 
         except Exception as e:
 

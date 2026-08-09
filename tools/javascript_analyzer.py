@@ -40,6 +40,10 @@ class JavaScriptAnalyzer:
         r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"
     )
 
+    GOOGLE_API_KEY_REGEX = re.compile(
+        r"AIza[0-9A-Za-z\-_]{35}"
+    )
+
     def _add_finding(
         self,
         findings,
@@ -193,4 +197,19 @@ class JavaScriptAnalyzer:
                         js.url,
                     )
 
+                    # -----------------------------------
+                    # Google API Key Extraction
+                    # -----------------------------------
+
+                for key in self.GOOGLE_API_KEY_REGEX.findall(text):
+
+                    self._add_finding(
+                        findings,
+                        seen,
+                        "Google API Key",
+                        key,
+                        js.url,
+                    )
+
         return findings
+       
