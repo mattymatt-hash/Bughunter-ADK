@@ -5,7 +5,8 @@ from datetime import datetime
 from unittest import result
 from tools.javascript_tool import JavaScriptTool
 from tools.javascript_analyzer import JavaScriptAnalyzer
-
+from tools.jwt_tool import JWTTool
+from tools.url_classifier import URLClassifier
 import requests
 
 from models.host_result import HostResult
@@ -20,8 +21,12 @@ class ReconAgent:
     def __init__(self, max_workers=20):
         self.httpx = HttpxTool()
         self.katana = KatanaTool()
+
         self.javascript = JavaScriptTool()
         self.javascript_analyzer = JavaScriptAnalyzer()
+        self.jwt = JWTTool()
+        self.url_classifier = URLClassifier()
+
         self.max_workers = max_workers
 
     def _scan_host(self, host):
@@ -217,6 +222,54 @@ class ReconAgent:
             result.discovered_urls = len(result.urls)
 
             # -----------------------------------
+            # URL Classification
+            # -----------------------------------
+
+            print()
+            print("Classifying URLs...")
+            print()
+
+            result.url_categories = (
+                self.url_classifier.classify(
+                    result.urls
+                )
+            )
+            summary = {}
+
+            for item in result.url_categories:
+
+                summary[item.category] = (
+                    summary.get(item.category, 0) + 1
+                )
+
+            print("URL Categories")
+            print("-" * 35)
+
+            expected = [
+                "API",
+                "Login",
+                "Admin",
+                "Dashboard",
+                "Auth",
+                "Static",
+                "Images",
+                "Downloads",
+                "Documents",
+                "Unknown",
+            ]
+
+            for category in expected:
+
+                print(
+                    f"{category:<15}{summary.get(category,0):>5}"
+                )
+
+            print("-" * 35)
+            print(
+                f"{'Total URLs':<15}{len(result.url_categories):>5}"
+            )
+
+            # -----------------------------------
               # JavaScript Discovery
             # -----------------------------------
 
@@ -273,10 +326,10 @@ class ReconAgent:
                 "TODO/FIXME",
                 "JWT Token",
                 "Google API Key",
-                "Firebase URLs",
+                "Firebase URL",
                 "AWS Keys",
-                "Internal IPs",
-                "Authorization Headers"
+                "Internal IP",
+                "Authorization Header"
             ]
 
             summary = {}
@@ -296,7 +349,37 @@ class ReconAgent:
                 f"{'Total Findings':<20} {len(result.javascript_findings):>5}"
             )
 
+            # -----------------------------------
+            # JWT Analysis
+            # -----------------------------------
+
+            print()
+            print("Running JWT Analysis...")
+            print()
+
+            result.jwt_results = []
+
+            for finding in result.javascript_findings:
+
+                if finding.type != "JWT Token":
+                    continue
+
+                jwt = self.jwt.decode(
+                    finding.value,
+                    finding.source,
+                )
+
+                result.jwt_results.append(jwt)
+
+            print(
+                f"Decoded {len(result.jwt_results)} JWTs"
+            )
+
         except Exception as e:
+
+            result.urls = []
+            result.javascript_files = []
+            result.javascript_findings = [] 
 
             print("\n========== KATANA ERROR ==========")
             print(type(e).__name__)

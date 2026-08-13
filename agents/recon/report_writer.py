@@ -81,11 +81,18 @@ class ReportWriter:
             ],
             "javascript_findings": [
 
-              asdict(finding)
+                asdict(finding)
 
-              for finding in result.javascript_findings
+                for finding in result.javascript_findings
 
-],
+            ],
+            "jwt_results": [
+
+                asdict(jwt)
+
+                for jwt in result.jwt_results
+
+            ],
         }
 
         with open(filename, "w", encoding="utf-8") as f:
