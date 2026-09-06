@@ -1,4 +1,4 @@
-import requests
+from tools.retry import http
 
 
 class TechnologyDetector:
@@ -8,13 +8,29 @@ class TechnologyDetector:
         technologies = []
 
         try:
-            response = requests.get(url, timeout=10)
+
+            response = http.get(url)
+
+            if response is None:
+
+                return []
+
+            # Fix encoding
+            response.encoding = response.apparent_encoding
 
             headers = response.headers
+
             html = response.text.lower()
 
-            server = headers.get("Server", "").lower()
-            powered = headers.get("X-Powered-By", "").lower()
+            server = headers.get(
+                "Server",
+                "",
+            ).lower()
+
+            powered = headers.get(
+                "X-Powered-By",
+                "",
+            ).lower()
 
             if "cloudflare" in server:
                 technologies.append("Cloudflare")
@@ -49,7 +65,7 @@ class TechnologyDetector:
             if "graphql" in html:
                 technologies.append("GraphQL")
 
-            return sorted(list(set(technologies)))
+            return sorted(set(technologies))
 
         except Exception:
 

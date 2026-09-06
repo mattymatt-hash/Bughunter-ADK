@@ -2,7 +2,7 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-
+from config import settings
 
 class ReportWriter:
 
@@ -15,6 +15,19 @@ class ReportWriter:
         )
 
         report = {
+            "scanner": {
+
+                "name": settings.APP_NAME,
+
+                "version": settings.VERSION,
+
+            },
+
+            "generated": datetime.now().isoformat(),
+            
+            # -----------------------------------
+            # Scan Information
+            # -----------------------------------
 
             "scan": {
 
@@ -25,6 +38,10 @@ class ReportWriter:
 
             },
 
+            # -----------------------------------
+            # Target
+            # -----------------------------------
+
             "target": {
 
                 "domain": result.target,
@@ -33,10 +50,35 @@ class ReportWriter:
                 "title": result.title,
                 "server": result.server,
                 "powered_by": result.powered_by,
-                "robots": result.robots,
-                "sitemap": result.sitemap,
+
+                "robots": {
+
+                    "found": result.robots.found,
+                    "disallow": result.robots.disallow,
+                    "allow": result.robots.allow,
+                    "sitemaps": result.robots.sitemaps,
+                    "interesting_paths": result.robots.interesting_paths,
+
+                },
+
+                "sitemap": {
+
+                    "found": result.sitemap.found,
+                    "urls": result.sitemap.urls,
+                    "apis": result.sitemap.apis,
+                    "images": result.sitemap.images,
+                    "news": result.sitemap.news,
+                    "alternate_languages": (
+                        result.sitemap.alternate_languages
+                    ),
+
+                },
 
             },
+
+            # -----------------------------------
+            # Statistics
+            # -----------------------------------
 
             "statistics": {
 
@@ -54,7 +96,29 @@ class ReportWriter:
 
             },
 
+            "passive": {
+
+                "wayback_urls": result.wayback_urls,
+
+                "commoncrawl_urls": result.commoncrawl_urls,
+
+                "otx_urls": result.otx_urls,
+
+                "duplicates_removed": result.duplicate_urls,
+
+                "unique_urls": len(result.urls),
+
+            },
+
+            # -----------------------------------
+            # Technologies
+            # -----------------------------------
+
             "technologies": result.technologies,
+
+            # -----------------------------------
+            # Hosts
+            # -----------------------------------
 
             "hosts": [
 
@@ -64,6 +128,10 @@ class ReportWriter:
 
             ],
 
+            # -----------------------------------
+            # JavaScript Files
+            # -----------------------------------
+
             "javascript_files": [
 
                 asdict(js)
@@ -72,6 +140,10 @@ class ReportWriter:
 
             ],
 
+            # -----------------------------------
+            # URLs
+            # -----------------------------------
+
             "urls": [
 
                 asdict(url)
@@ -79,6 +151,11 @@ class ReportWriter:
                 for url in result.urls
 
             ],
+
+            # -----------------------------------
+            # JavaScript Findings
+            # -----------------------------------
+
             "javascript_findings": [
 
                 asdict(finding)
@@ -86,6 +163,11 @@ class ReportWriter:
                 for finding in result.javascript_findings
 
             ],
+
+            # -----------------------------------
+            # JWT Results
+            # -----------------------------------
+
             "jwt_results": [
 
                 asdict(jwt)
@@ -93,6 +175,43 @@ class ReportWriter:
                 for jwt in result.jwt_results
 
             ],
+
+            # -----------------------------------
+            # Security Headers
+            # -----------------------------------
+
+            "security_headers": [
+
+                asdict(header)
+
+                for header in result.header_results
+
+            ],
+
+            # -----------------------------------
+            # TLS
+            # -----------------------------------
+
+            "tls": [
+
+                asdict(tls)
+
+                for tls in result.tls_results
+
+            ],
+
+            # -----------------------------------
+            # HTTP Methods
+            # -----------------------------------
+
+            "http_methods": [
+
+                asdict(item)
+
+                for item in result.http_methods
+
+            ],
+
         }
 
         with open(filename, "w", encoding="utf-8") as f:
@@ -100,7 +219,7 @@ class ReportWriter:
             json.dump(
                 report,
                 f,
-                indent=4
+                indent=4,
             )
 
         return filename

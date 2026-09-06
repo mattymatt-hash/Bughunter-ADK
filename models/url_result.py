@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -10,6 +10,10 @@ class UrlResult:
 
     content_type: str = ""
 
-    source: str = "katana"
+    source: str = ""
+
+    sources: list[str] = field(
+        default_factory=list
+    )
 
     length: int = 0

@@ -1,4 +1,5 @@
 import sys
+from unittest import result
 
 from rich.console import Console
 
@@ -60,12 +61,77 @@ def display(result):
     console.print(f"Title        : {result.title}")
     console.print(f"Server       : {result.server}")
     console.print(f"Powered By   : {result.powered_by}")
-    console.print(f"robots.txt   : {result.robots}")
-    console.print(f"sitemap.xml  : {result.sitemap}")
+    # -----------------------------------
+    # robots.txt
+    # -----------------------------------
 
     console.print()
 
-    console.print("[bold cyan]Technologies[/bold cyan]")
+    console.print("[bold cyan]robots.txt[/bold cyan]")
+
+    if result.robots.found:
+
+        console.print("[green]Found[/green]")
+
+        console.print(
+            f"Disallow Rules : {len(result.robots.disallow)}"
+        )
+
+        console.print(
+            f"Allow Rules    : {len(result.robots.allow)}"
+        )
+
+        console.print(
+            f"Sitemaps       : {len(result.robots.sitemaps)}"
+        )
+
+        console.print(
+            f"Interesting    : {len(result.robots.interesting_paths)}"
+        )
+
+    else:
+
+        console.print("Not Found")
+
+        # -----------------------------------
+        # sitemap.xml
+        # -----------------------------------
+
+        console.print()
+
+        console.print("[bold cyan]sitemap.xml[/bold cyan]")
+
+        if result.sitemap.found:
+
+            console.print("[green]Found[/green]")
+
+            console.print(
+                f"URLs      : {len(result.sitemap.urls)}"
+            )
+
+            console.print(
+                f"APIs      : {len(result.sitemap.apis)}"
+            )
+
+            console.print(
+                f"Images    : {len(result.sitemap.images)}"
+            )
+
+            console.print(
+                f"News      : {len(result.sitemap.news)}"
+            )
+
+            console.print(
+                f"Languages : {len(result.sitemap.alternate_languages)}"
+            )
+
+        else:
+
+            console.print("Not Found")
+
+            console.print()
+
+            console.print("[bold cyan]Technologies[/bold cyan]")
 
     if result.technologies:
 

@@ -1,12 +1,16 @@
-from email.mime import text
 import re
 
-import requests
+from config import settings
 
 from models.javascript_finding import JavaScriptFinding
+from tools.retry import http
 
 
 class JavaScriptAnalyzer:
+
+    # --------------------------------------------------
+    # Regex Patterns
+    # --------------------------------------------------
 
     URL_REGEX = re.compile(
         r"https?://[^\s\"'<>]+"
@@ -66,6 +70,30 @@ class JavaScriptAnalyzer:
         re.IGNORECASE,
     )
 
+    GITHUB_TOKEN_REGEX = re.compile(
+        r"gh[pousr]_[A-Za-z0-9]{36,255}"
+    )
+
+    STRIPE_SECRET_REGEX = re.compile(
+        r"sk_live_[A-Za-z0-9]+"
+    )
+
+    SLACK_TOKEN_REGEX = re.compile(
+        r"xox[baprs]-[A-Za-z0-9-]+"
+    )
+
+    PRIVATE_KEY_REGEX = re.compile(
+        r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
+    )
+
+    SOURCEMAP_REGEX = re.compile(
+        r"sourceMappingURL=([^\r\n]+)"
+    )
+
+    # --------------------------------------------------
+    # Helper
+    # --------------------------------------------------
+
     def _add_finding(
         self,
         findings,
@@ -96,6 +124,9 @@ class JavaScriptAnalyzer:
 
         )
 
+    # --------------------------------------------------
+    # Main Analyzer
+    # --------------------------------------------------
 
     def analyze(self, javascript_files):
 
@@ -107,10 +138,46 @@ class JavaScriptAnalyzer:
 
             try:
 
-                response = requests.get(
+                response = http.get(
                     js.url,
-                    timeout=15,
                 )
+
+                if response is None:
+                    continue
+
+                if response.status_code != 200:
+                    continue
+
+                # -----------------------------------
+                # Fix encoding
+                # -----------------------------------
+
+                response.encoding = response.apparent_encoding
+
+                # -----------------------------------
+                # Verify JavaScript content
+                # -----------------------------------
+
+                content_type = response.headers.get(
+                    "Content-Type",
+                    "",
+                ).lower()
+
+                if (
+                    "javascript" not in content_type
+                    and "ecmascript" not in content_type
+                ):
+                    continue
+
+                # -----------------------------------
+                # Skip huge JavaScript files
+                # -----------------------------------
+
+                if (
+                    len(response.content)
+                    > settings.MAX_JS_FILE_SIZE
+                ):
+                    continue
 
                 text = response.text
 
@@ -119,7 +186,7 @@ class JavaScriptAnalyzer:
                 continue
 
             # -----------------------------------
-            # URL Extraction
+            # URLs
             # -----------------------------------
 
             for match in self.URL_REGEX.findall(text):
@@ -133,7 +200,7 @@ class JavaScriptAnalyzer:
                 )
 
             # -----------------------------------
-            # REST Endpoint Extraction
+            # REST Endpoints
             # -----------------------------------
 
             for endpoint in self.REST_REGEX.findall(text):
@@ -145,9 +212,10 @@ class JavaScriptAnalyzer:
                     endpoint,
                     js.url,
                 )
-                # -----------------------------------
-                # GraphQL Endpoint Extraction
-                # -----------------------------------
+
+            # -----------------------------------
+            # GraphQL Endpoints
+            # -----------------------------------
 
             for endpoint in self.GRAPHQL_REGEX.findall(text):
 
@@ -159,22 +227,23 @@ class JavaScriptAnalyzer:
                     js.url,
                 )
 
-                # -----------------------------------
-                # WebSocket Extraction
-                # -----------------------------------
+            # -----------------------------------
+            # WebSockets
+            # -----------------------------------
+
             for websocket in self.WEBSOCKET_REGEX.findall(text):
 
                 self._add_finding(
-                     findings,
-                     seen,
-                     "WebSocket",
-                     websocket,
-                     js.url,
-                 )
- 
-                 # -----------------------------------
-                # Email Extraction
-                # -----------------------------------
+                    findings,
+                    seen,
+                    "WebSocket",
+                    websocket,
+                    js.url,
+                )
+
+            # -----------------------------------
+            # Emails
+            # -----------------------------------
 
             for email in self.EMAIL_REGEX.findall(text):
 
@@ -186,108 +255,177 @@ class JavaScriptAnalyzer:
                     js.url,
                 )
 
-                # -----------------------------------
-                # TODO / FIXME Extraction
-                # -----------------------------------
+            # -----------------------------------
+            # TODO / FIXME
+            # -----------------------------------
 
-                for todo in self.TODO_REGEX.findall(text):
+            for todo in self.TODO_REGEX.findall(text):
 
-                    todo = todo.strip()
+                todo = todo.strip()
 
-                    if not todo:
-                        continue
+                if not todo:
+                    continue
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "TODO/FIXME",
-                        todo,
-                        js.url,
-                    )
+                self._add_finding(
+                    findings,
+                    seen,
+                    "TODO/FIXME",
+                    todo,
+                    js.url,
+                )
 
-                    # -----------------------------------
-                    # JWT Token Extraction
-                    # -----------------------------------
+            # -----------------------------------
+            # JWT Tokens
+            # -----------------------------------
 
-                for token in self.JWT_REGEX.findall(text):
+            for token in self.JWT_REGEX.findall(text):
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "JWT Token",
-                        token,
-                        js.url,
-                    )
+                self._add_finding(
+                    findings,
+                    seen,
+                    "JWT Token",
+                    token,
+                    js.url,
+                )
 
-                    # -----------------------------------
-                    # Google API Key Extraction
-                    # -----------------------------------
+            # -----------------------------------
+            # Google API Keys
+            # -----------------------------------
 
-                for key in self.GOOGLE_API_KEY_REGEX.findall(text):
+            for api_key in self.GOOGLE_API_KEY_REGEX.findall(text):
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "Google API Key",
-                        key,
-                        js.url,
-                    )
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Google API Key",
+                    api_key,
+                    js.url,
+                )
 
-                    # -----------------------------------
-                    # Firebase URL Extraction
-                    # -----------------------------------
+            # -----------------------------------
+            # Firebase URLs
+            # -----------------------------------
 
-                for url in self.FIREBASE_REGEX.findall(text):
+            for firebase_url in self.FIREBASE_REGEX.findall(text):
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "Firebase URL",
-                        url,
-                        js.url,
-                    )
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Firebase URL",
+                    firebase_url,
+                    js.url,
+                )
 
-                    # -----------------------------------
-                    # AWS Key Extraction
-                    # -----------------------------------
+            # -----------------------------------
+            # AWS Keys
+            # -----------------------------------
 
-                for key in self.AWS_KEY_REGEX.findall(text):
+            for aws_key in self.AWS_KEY_REGEX.findall(text):
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "AWS Key",
-                        key,
-                        js.url,
-                    )
+                self._add_finding(
+                    findings,
+                    seen,
+                    "AWS Key",
+                    aws_key,
+                    js.url,
+                )
 
-                    # -----------------------------------
-                    # Internal IP Extraction
-                    # -----------------------------------
+            # -----------------------------------
+            # Internal IPs
+            # -----------------------------------
 
-                for ip in self.INTERNAL_IP_REGEX.findall(text):
+            for ip in self.INTERNAL_IP_REGEX.findall(text):
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "Internal IP",
-                        ip,
-                        js.url,
-                    )
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Internal IP",
+                    ip,
+                    js.url,
+                )
 
-                     # -----------------------------------
-                     # Authorization Header Extraction
-                     # -----------------------------------
+            # -----------------------------------
+            # Authorization Headers
+            # -----------------------------------
 
-                for auth_type, token in self.AUTH_HEADER_REGEX.findall(text):
+            for auth_type, token in self.AUTH_HEADER_REGEX.findall(text):
 
-                    self._add_finding(
-                        findings,
-                        seen,
-                        "Authorization Header",
-                        f"{auth_type} {token}",
-                        js.url,
-                    )              
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Authorization Header",
+                    f"{auth_type} {token}",
+                    js.url,
+                )
+
+            # -----------------------------------
+            # GitHub Tokens
+            # -----------------------------------
+
+            for token in self.GITHUB_TOKEN_REGEX.findall(text):
+
+                self._add_finding(
+                    findings,
+                    seen,
+                    "GitHub Token",
+                    token,
+                    js.url,
+                )
+
+            # -----------------------------------
+            # Stripe Secrets
+            # -----------------------------------
+
+            for key in self.STRIPE_SECRET_REGEX.findall(text):
+
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Stripe Secret",
+                    key,
+                    js.url,
+                )
+
+            # -----------------------------------
+            # Slack Tokens
+            # -----------------------------------
+
+            for token in self.SLACK_TOKEN_REGEX.findall(text):
+
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Slack Token",
+                    token,
+                    js.url,
+                )
+
+            # -----------------------------------
+            # Private Keys
+            # -----------------------------------
+
+            for key in self.PRIVATE_KEY_REGEX.findall(text):
+
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Private Key",
+                    key,
+                    js.url,
+                )
+
+            # -----------------------------------
+            # Source Maps
+            # -----------------------------------
+
+            for source_map in self.SOURCEMAP_REGEX.findall(text):
+
+                self._add_finding(
+                    findings,
+                    seen,
+                    "Source Map",
+                    source_map,
+                    js.url,
+                )
 
         return findings
-       
