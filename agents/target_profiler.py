@@ -15,6 +15,12 @@ class TargetProfiler:
     def __init__(self):
         self.name = "target_profiler"
 
+    def build(self, scan: ScanResult) -> TargetProfile:
+        """Build a TargetProfile from a ReconAgent ScanResult."""
+        return self.build_profile(scan)
+
+
+
     def build_profile(self, scan: ScanResult) -> TargetProfile:
 
         if not isinstance(scan, ScanResult):
