@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 from agents.base_agent import BaseSecurityAgent
 from models.agent_result import AgentResult
@@ -10,7 +10,10 @@ from models.hypothesis import Hypothesis
 
 class AuthAgent(BaseSecurityAgent):
     name = "auth"
-    description = "Analyzes authentication surfaces and creates authentication security hypotheses."
+    description = (
+        "Analyzes authentication surfaces and creates authentication "
+        "security hypotheses."
+    )
 
     def run(
         self,
@@ -19,15 +22,20 @@ class AuthAgent(BaseSecurityAgent):
         context: dict[str, Any] | None = None,
     ) -> AgentResult:
 
-        target = getattr(
-            target_profile,
-            "target",
-            getattr(scan_result, "target", "unknown"),
+        target = (
+            getattr(scan_result, "target", None)
+            or getattr(target_profile, "target", "unknown")
         )
 
         result = AgentResult(
             agent=self.name,
             target=target,
+            metadata={
+                "phase": 1,
+                "implemented": True,
+                "analysis_type": "recon_driven",
+                "destructive_testing": False,
+            },
         )
 
         auth_endpoints = list(
@@ -35,25 +43,59 @@ class AuthAgent(BaseSecurityAgent):
         )
 
         authentication_present = bool(
-            getattr(target_profile, "authentication_present", False)
+            getattr(
+                target_profile,
+                "authentication_present",
+                False,
+            )
         )
 
-        result.observations.append({
+        # ---------------------------------------------------------
+        # Authentication surface summary
+        # ---------------------------------------------------------
+
+        result.add_observation({
             "type": "authentication_surface",
+            "source_url": target,
             "endpoint_count": len(auth_endpoints),
             "authentication_present": authentication_present,
             "endpoints": auth_endpoints,
+            "severity": "info",
+            "confidence": 0.95,
         })
+
+        # ---------------------------------------------------------
+        # No authentication surface discovered
+        # ---------------------------------------------------------
 
         if not authentication_present and not auth_endpoints:
             result.metadata.update({
-                "phase": 1,
-                "implemented": True,
-                "analysis_type": "recon_driven",
                 "hypothesis_count": 0,
+                "observation_count": len(result.observations),
             })
 
             return result
+
+        # ---------------------------------------------------------
+        # Per-endpoint observations
+        # ---------------------------------------------------------
+
+        for endpoint in auth_endpoints:
+            result.add_observation({
+                "type": "authentication_endpoint",
+                "source_url": endpoint,
+                "message": (
+                    "Authentication endpoint discovered; review "
+                    "credential handling, session management, and "
+                    "authentication boundaries."
+                ),
+                "severity": "info",
+                "confidence": 0.95,
+            })
+
+        # ---------------------------------------------------------
+        # Authentication hypotheses
+        # ---------------------------------------------------------
 
         hypotheses = [
             (
@@ -84,6 +126,7 @@ class AuthAgent(BaseSecurityAgent):
         ]
 
         for vulnerability_type, description, priority in hypotheses:
+
             hypothesis = Hypothesis(
                 id=f"{self.name}-{uuid4().hex[:12]}",
                 agent=self.name,
@@ -97,16 +140,19 @@ class AuthAgent(BaseSecurityAgent):
                     "phase": 1,
                     "auth_endpoint_count": len(auth_endpoints),
                     "authentication_present": authentication_present,
+                    "auth_endpoints": auth_endpoints,
                 },
             )
 
             result.add_hypothesis(hypothesis)
 
+        # ---------------------------------------------------------
+        # Final metadata
+        # ---------------------------------------------------------
+
         result.metadata.update({
-            "phase": 1,
-            "implemented": True,
-            "analysis_type": "recon_driven",
-            "destructive_testing": False,
+            "auth_endpoint_count": len(auth_endpoints),
+            "authentication_present": authentication_present,
             "hypothesis_count": len(result.hypotheses),
             "observation_count": len(result.observations),
         })

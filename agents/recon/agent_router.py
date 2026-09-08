@@ -1,16 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
 
 class AgentRouter:
-    """
-    Selects security agents based on the TargetProfile.
-
-    This class is the single source of truth for deciding which
-    specialized security agents are relevant to a target.
-    """
-
     PHASE_1_AGENTS = {
         "app_review",
         "api",
@@ -19,25 +10,37 @@ class AgentRouter:
         "xss",
     }
 
-    def select(self, profile: Any) -> list[str]:
-        """
-        Return the Phase 1 agents applicable to the target profile.
-        """
+    PHASE_2_AGENTS = {
+        "sqli",
+        "ssrf",
+        "csrf",
+        "cors",
+        "admin",
+    }
 
-        selected: set[str] = set()
+    PHASE_3_AGENTS = {
+        "business_logic",
+        "file_upload",
+        "websocket",
+        "llm_security",
+    }
 
-        # Every target receives a general application review.
+    def select(self, profile):
+        selected = set()
+
+        # -------------------------
+        # Phase 1
+        # -------------------------
+
         selected.add("app_review")
+        selected.add("xss")
 
-        # API analysis is relevant when API endpoints exist.
         if getattr(profile, "api_endpoints", []):
             selected.add("api")
 
-        # Authentication analysis.
         if getattr(profile, "authentication_present", False):
             selected.add("auth")
 
-        # IDOR / authorization analysis.
         if (
             getattr(profile, "authorization_relevant", False)
             and (
@@ -47,17 +50,72 @@ class AgentRouter:
         ):
             selected.add("idor")
 
-        # XSS is currently part of the Phase 1 baseline.
-        selected.add("xss")
+        # -------------------------
+        # Phase 2
+        # -------------------------
+
+        endpoints = getattr(profile, "endpoints", []) or []
+        api_endpoints = getattr(profile, "api_endpoints", []) or []
+        auth_endpoints = getattr(profile, "auth_endpoints", []) or []
+        admin_endpoints = getattr(profile, "admin_endpoints", []) or []
+        dashboard_endpoints = (
+            getattr(profile, "dashboard_endpoints", []) or []
+        )
+
+        if endpoints or api_endpoints:
+            selected.add("sqli")
+            selected.add("ssrf")
+
+        if auth_endpoints or getattr(
+            profile,
+            "authentication_present",
+            False,
+        ):
+            selected.add("csrf")
+
+        # CORS review is useful for HTTP applications even when
+        # explicit CORS headers were not discovered.
+        selected.add("cors")
+
+        if admin_endpoints or dashboard_endpoints:
+            selected.add("admin")
+
+        # -------------------------
+        # Phase 3
+        # -------------------------
+
+        if (
+            getattr(profile, "payment_related", False)
+            or getattr(profile, "webhook_present", False)
+        ):
+            selected.add("business_logic")
+
+        if (
+            getattr(profile, "file_upload_present", False)
+            or getattr(profile, "upload_endpoints", [])
+        ):
+            selected.add("file_upload")
+
+        if getattr(profile, "websocket_detected", False):
+            selected.add("websocket")
+
+        if getattr(profile, "llm_detected", False):
+            selected.add("llm_security")
 
         return sorted(selected)
 
-    def is_phase_1_agent(self, agent_name: str) -> bool:
-        """Return True when the agent belongs to Phase 1."""
-
+    def is_phase_1_agent(self, agent_name):
         return agent_name in self.PHASE_1_AGENTS
 
-    def available_agents(self) -> list[str]:
-        """Return all Phase 1 agent names."""
+    def is_phase_2_agent(self, agent_name):
+        return agent_name in self.PHASE_2_AGENTS
 
-        return sorted(self.PHASE_1_AGENTS)
+    def is_phase_3_agent(self, agent_name):
+        return agent_name in self.PHASE_3_AGENTS
+
+    def available_agents(self):
+        return sorted(
+            self.PHASE_1_AGENTS
+            | self.PHASE_2_AGENTS
+            | self.PHASE_3_AGENTS
+        )

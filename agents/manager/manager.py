@@ -1,5 +1,5 @@
 from google import genai
-
+from agents.validation.safe_validator import SafeValidator
 from agents.validator_agent import ValidatorAgent
 from agents.evidence_agent import EvidenceAgent
 from agents.target_profiler import TargetProfiler
@@ -39,6 +39,8 @@ class ManagerAgent:
         self.client = genai.Client(
             api_key=GOOGLE_API_KEY
         )
+
+        self.safe_validator = SafeValidator()
 
         # =================================================
         # TARGET PROFILER
@@ -338,19 +340,19 @@ class ManagerAgent:
 
     def evaluate_hypotheses(self, hypotheses, results):
         """
-        Send generated hypotheses through EvidenceAgent
-        and ValidatorAgent.
+        Evaluate hypotheses using observed evidence and the safe validation layer.
 
-        Recon observations are deliberately recorded as
-        non-supporting evidence. A finding is only created
-        when later authorized validation produces evidence
-        that actually supports the hypothesis.
+        Observations are converted into traceable Evidence objects.
+        SafeValidator determines whether an observation can support a
+        hypothesis without performing destructive or active exploitation.
+
+        ValidatorAgent remains the final authority for creating findings.
         """
 
         evaluations = []
         findings = []
 
-        # Index execution results by agent name.
+        # Index execution results by agent.
         result_by_agent = {}
 
         for execution_result in results:
@@ -370,19 +372,13 @@ class ManagerAgent:
             agent_name = getattr(
                 hypothesis,
                 "agent",
-                "unknown"
+                "unknown",
             )
 
             target = getattr(
                 hypothesis,
                 "target",
-                "unknown"
-            )
-
-            vulnerability_type = getattr(
-                hypothesis,
-                "vulnerability_type",
-                "unknown"
+                "unknown",
             )
 
             execution_result = result_by_agent.get(
@@ -397,84 +393,139 @@ class ManagerAgent:
             observations = []
 
             if agent_result is not None:
-
                 observations = list(
                     getattr(
                         agent_result,
                         "observations",
-                        []
+                        [],
                     ) or []
                 )
 
-            # -------------------------------------------------
-            # Neutral evidence.
-            #
-            # This is NOT proof of a vulnerability.
-            # -------------------------------------------------
+        # -------------------------------------------------
+        # Safe validation
+        # -------------------------------------------------
 
-            evidence_description = (
-                "Reconnaissance observation associated with "
-                f"hypothesis '{vulnerability_type}'. "
-                "No active validation evidence has been "
-                "collected yet."
+            safe_validation = self.safe_validator.validate(
+                hypothesis=hypothesis,
+                observations=observations,
             )
 
-            evidence = self.evidence.create(
-                evidence_type="recon_observation",
-                target=target,
-                description=evidence_description,
-                source_agent=agent_name,
-                supports_hypothesis=False,
-                confidence=0.25,
-                data={
-                    "hypothesis_id": getattr(
-                        hypothesis,
-                        "id",
-                        ""
+            validation_evidence = safe_validation.get(
+                "evidence",
+                []
+            )
+
+            evidence_dicts = []
+
+            for item in validation_evidence:
+
+                if not isinstance(item, dict):
+                    continue
+
+                observation = item.get(
+                    "observation",
+                    {}
+                )
+
+                if not isinstance(observation, dict):
+                    observation = {}
+
+                source_url = (
+                    observation.get("source_url")
+                    or observation.get("url")
+                    or target
+                )
+
+                evidence = self.evidence.create(
+                    evidence_type=observation.get(
+                        "type",
+                        "observation",
                     ),
-                    "vulnerability_type": vulnerability_type,
-                    "observations": observations,
-                    "validation_status": "not_validated",
-                },
-            )
+                    target=source_url,
+                    description=(
+                        item.get("reason")
+                        or observation.get(
+                            "message",
+                            "Security observation.",
+                        )
+                    ),
+                    source_agent=agent_name,
+                    supports_hypothesis=bool(
+                        item.get(
+                            "supports_hypothesis",
+                            False,
+                        )
+                    ),
+                    confidence=observation.get(
+                        "confidence",
+                        0.0,
+                    ),
+                    data={
+                        "hypothesis_id": getattr(
+                         hypothesis,
+                         "id",
+                         "",
+                     ),
+                        "vulnerability_type": getattr(
+                            hypothesis,
+                            "vulnerability_type",
+                        "unknown",
+                    ),
+                        "observation": observation,
+                        "safe_validation": safe_validation,
+                    }
+                )
 
-            # ValidatorAgent expects dictionaries
-            # containing an evidence ID and support flag.
+                evidence_dicts.append(
+                    {
+                        "id": evidence.id,
+                        "evidence_type": evidence.evidence_type,
+                        "target": evidence.target,
+                        "description": evidence.description,
+                        "source_agent": evidence.source_agent,
+                        "supports_hypothesis": (
+                            evidence.supports_hypothesis
+                        ),
+                        "confidence": evidence.confidence,
+                        "data": evidence.data,
+                    }
+                )
 
-            evidence_dict = {
-                "id": evidence.id,
-                "evidence_type": evidence.evidence_type,
-                "target": evidence.target,
-                "description": evidence.description,
-                "source_agent": evidence.source_agent,
-                "supports_hypothesis": (
-                    evidence.supports_hypothesis
-                ),
-                "confidence": evidence.confidence,
-                "data": evidence.data,
-            }
+        # -------------------------------------------------
+        # Final validation
+        #
+        # ValidatorAgent is still the final authority.
+        # -------------------------------------------------
 
             validation = self.validator.validate(
                 hypothesis,
-                [evidence_dict]
+                evidence_dicts,
             )
 
-            evaluation = {
-                "hypothesis": hypothesis,
-                "evidence": [evidence_dict],
-                "validation": validation,
-            }
+            # Preserve the complete validation state produced by
+            # SafeValidator for downstream reporting and auditing.
+            validation["validation_status"] = safe_validation.get(
+                "validation_status",
+                safe_validation.get(
+                    "status",
+                    "inconclusive",
+                ),
+            )
 
-            evaluations.append(evaluation)
+            validation["safe_validation"] = safe_validation
 
-            if isinstance(validation, dict):
+            evaluations.append(validation)
+
+            if validation.get("status") == "confirmed":
 
                 finding = validation.get(
                     "finding"
                 )
 
                 if finding is not None:
-                    findings.append(finding)
+                    findings.append(
+                        finding
+                    )
 
         return {
             "evaluations": evaluations,
